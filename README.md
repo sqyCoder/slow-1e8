@@ -7,6 +7,13 @@
 包名 `com.paceassist.auto` · minSdk 29 (Android 10+) · targetSdk 33 · 纯 Java，无 Gradle · 当前版本 `2.7`
 
 <p align="center">
+  <a href="https://github.com/sqyCoder/slow-1e8/releases/download/v2.7/PaceAssist-v2.7.apk"><b>⬇ 直接下载 v2.7 APK</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/sqyCoder/slow-1e8/releases">全部版本</a>
+  &nbsp;·&nbsp; 仓库内也放了一份：<code>release/PaceAssist-v2.7.apk</code>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/main.webp" width="270" alt="主界面">
   <img src="docs/screenshots/route.webp" width="270" alt="画路线">
   <img src="docs/screenshots/overlay.webp" width="270" alt="悬浮调速条">
@@ -20,6 +27,7 @@
 
 ## 目录
 
+- [下载与安装](#下载与安装)
 - [它怎么工作](#它怎么工作)
 - [截图](#截图)
 - [准备工作（三个前提）](#准备工作三个前提)
@@ -33,6 +41,16 @@
 - [免责声明](#免责声明)
 
 ---
+
+## 下载与安装
+
+- **直接下载**：[`PaceAssist-v2.7.apk`](https://github.com/sqyCoder/slow-1e8/releases/download/v2.7/PaceAssist-v2.7.apk)（324 KB）
+- 仓库内备份：[`release/PaceAssist-v2.7.apk`](release/PaceAssist-v2.7.apk)
+- 想自己编译：见 [从源码构建](#从源码构建)
+
+安装时可能提示「未知来源应用」，允许即可。这个 APK 是 **debug 签名**，自用没问题；要对外分发请自己生成 release keystore 重新构建（见构建一节）。
+
+> 如果手机上之前装过签名不同的旧版本（比如你自己编译的），需要先卸载再装，否则会报「应用未安装」。
 
 ## 它怎么工作
 
