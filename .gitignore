@@ -1,0 +1,22 @@
+# Android SDK / 本地工具链（体积大，不入库；构建时请自备，见 README）
+tools/android-sdk/
+tools/platform-tools/
+
+# 构建产物
+build/
+out/
+
+# 签名文件绝不入库
+*.keystore
+*.jks
+*.p12
+
+# 编辑器 / 系统垃圾
+.idea/
+.gradle/
+.DS_Store
+Thumbs.db
+*.log
+
+# 本地设计草稿
+.taste-skill/

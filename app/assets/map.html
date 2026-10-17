@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<title>画路线</title>
+<link rel="stylesheet" href="vendor/leaflet.css"/>
+<script src="vendor/leaflet.js"></script>
+<style>
+/* ══════════════════════════════════════════════════════════
+   画路线 —— 地图保持原生配色，不套滤镜。
+   上面是白色浮层（柔和投影 + 圆角），这是地图类产品的成熟语言：
+   信息层浮在地图之上，靠投影区分层级，而不是靠改地图颜色。
+   ══════════════════════════════════════════════════════════ */
+:root{
+  --ink:#0F1722;
+  --ink-2:#6B7787;
+  --line:#E6EAF0;
+  --route:#C2410C;          /* 路线主色：暖铁锈，浅底上足够重 */
+  --panel:#FFFFFF;
+  --sans:-apple-system,"SF Pro Text","Noto Sans CJK SC","Source Han Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --sh-1:0 1px 2px rgba(16,24,40,.06), 0 6px 20px rgba(16,24,40,.10);
+  --sh-2:0 2px 4px rgba(16,24,40,.08), 0 12px 32px rgba(16,24,40,.16);
+  --top:env(safe-area-inset-top,0px);
+  --bot:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;font-family:var(--sans);color:var(--ink);
+  overscroll-behavior:none;font-variant-numeric:tabular-nums;background:#EEF1F5}
+#map{position:absolute;inset:0}
+.leaflet-control-attribution{display:none}
+
+/* ── 顶部浮层 ── */
+#hud{position:fixed;z-index:1000;left:14px;right:14px;top:calc(14px + var(--top));
+  display:flex;align-items:center;gap:12px;padding:16px 20px;
+  background:var(--panel);border-radius:18px;box-shadow:var(--sh-1)}
+#hud .n{font-size:30px;font-weight:800;letter-spacing:-.03em;line-height:1}
+#hud .n small{font-size:14px;font-weight:500;color:var(--ink-2);margin-left:5px;letter-spacing:0}
+#hud .sp{flex:1}
+#hud .sum{text-align:right;font-size:14px;color:var(--ink-2);line-height:1.45}
+#hud .sum b{display:block;font-size:20px;font-weight:700;color:var(--ink);
+  letter-spacing:-.02em;margin-bottom:1px}
+
+/* ── 引导卡片 ── */
+#lead{position:fixed;z-index:900;left:50%;top:44%;transform:translate(-50%,-50%);
+  padding:18px 24px;background:var(--panel);border-radius:16px;box-shadow:var(--sh-1);
+  text-align:center;pointer-events:none;transition:opacity .3s ease;max-width:80vw}
+#lead .t{font-size:17px;font-weight:700;letter-spacing:-.01em}
+#lead .s{font-size:13.5px;color:var(--ink-2);margin-top:6px;line-height:1.5}
+#lead.gone{opacity:0}
+
+/* ── 底部动作条 ── */
+#bar{position:fixed;z-index:1000;left:14px;right:14px;bottom:calc(14px + var(--bot));
+  display:flex;gap:10px}
+#bar button{flex:1;min-height:54px;border:0;border-radius:16px;
+  font-family:inherit;font-size:16px;font-weight:600;letter-spacing:-.01em;
+  background:var(--panel);color:var(--ink);box-shadow:var(--sh-1);
+  transition:transform .1s ease,opacity .15s ease}
+#bar button:active{transform:scale(.97);opacity:.9}
+#bar button.go{flex:1.5;background:var(--ink);color:#fff;box-shadow:var(--sh-2)}
+
+/* ── 轻提示 ── */
+#toast{position:fixed;z-index:1200;left:50%;bottom:calc(92px + var(--bot));
+  transform:translateX(-50%) translateY(10px);opacity:0;
+  background:rgba(15,23,34,.92);color:#fff;padding:12px 20px;border-radius:14px;
+  font-size:14.5px;white-space:nowrap;box-shadow:var(--sh-2);
+  transition:opacity .2s ease,transform .2s ease;pointer-events:none}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── 路线点：白环 + 实心圆，浅底地图上的标准画法 ── */
+.pin{width:26px;height:26px;border-radius:50%;background:var(--route);
+  border:2.5px solid #fff;color:#fff;font-size:12px;font-weight:700;line-height:21px;
+  text-align:center;box-shadow:0 1px 4px rgba(16,24,40,.35)}
+.pin.pulse{animation:pop .45s cubic-bezier(.2,1.4,.5,1)}
+@keyframes pop{0%{transform:scale(.3)}100%{transform:scale(1)}}
+/* 起点（0 号点）：深色 + 白环，跟橙色的编号点一眼分清 */
+.pin.start{background:#0F172A;font-size:12px;border-color:#fff;
+  box-shadow:0 0 0 3px rgba(15,23,34,.18),0 1px 4px rgba(16,24,40,.4)}
+
+/* ── 模式切换：先钉起点，再画路线 ── */
+#seg{position:fixed;z-index:1100;left:14px;right:14px;top:calc(94px + var(--top));
+  display:flex;gap:5px;padding:5px;background:var(--panel);border-radius:16px;box-shadow:var(--sh-1)}
+#seg button{flex:1;min-height:46px;border:0;border-radius:12px;background:transparent;
+  font-family:inherit;font-size:15.5px;font-weight:700;color:var(--ink-2);
+  transition:background .15s ease,color .15s ease}
+#seg button.on{background:var(--ink);color:#fff}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="hud">
+  <div class="n" id="n">0<small>个点</small></div>
+  <div class="sp"></div>
+  <div class="sum" id="sum"><span style="font-size:13.5px">还没开始</span></div>
+</div>
+
+<div id="seg">
+  <button id="segStart" onclick="setMode('start')">设起点</button>
+  <button id="segRoute" class="on" onclick="setMode('route')">画路线</button>
+</div>
+
+<div id="lead">
+  <div class="t">在地图上点出路线</div>
+  <div class="s" id="leadSub">顺着路点密一点，轨迹才贴路</div>
+</div>
+
+<div id="bar">
+  <button id="undo" onclick="undo()">撤销</button>
+  <button id="clr" onclick="clearAll()">清空</button>
+  <button class="go" onclick="done()">完成</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* 两种模式：先自己钉一个「起点 0」，再画路线 1、2、3…
+   起点是**你自己在地图上选的位置**，不是手机当前位置 —— 免得从宿舍出发有穿墙嫌疑。 */
+var mode = 'start';       // 'start' | 'route'
+var startPt = null;       // 起点，钉下后一直保留
+var pts = [], marks = [], caseLine = null, coreLine = null;
+
+var map = L.map('map', {zoomControl:false, attributionControl:false, doubleClickZoom:false})
+            .setView([39.9086,116.3975], 16);
+
+/* 地图保持原生配色，不加任何滤镜 */
+L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+  {subdomains:'1234', maxZoom:19}).addTo(map);
+
+map.on('click', function(e){
+  var ll = [e.latlng.lat, e.latlng.lng];
+  if (mode === 'start') {
+    startPt = ll;                 // 放 / 挪起点，不追加
+    setMode('route');             // 放完自动切到画路线
+  } else {
+    pts.push(ll);
+  }
+  redraw();
+  buzz(8);
+});
+
+/** 送出去的完整路线 = 起点 + 编号点 */
+function allPts(){
+  return startPt ? [startPt].concat(pts) : pts.slice();
+}
+
+function setMode(m){
+  mode = m;
+  document.getElementById('segStart').className = (m === 'start' ? 'on' : '');
+  document.getElementById('segRoute').className = (m === 'route' ? 'on' : '');
+  var lead = document.getElementById('lead');
+  if (m === 'start') {
+    lead.className = '';
+    document.querySelector('#lead .t').textContent = '点一下你要出发的位置';
+    document.getElementById('leadSub').textContent = '自己选，别用宿舍 —— 否则路线会穿墙';
+  } else if (!allPts().length) {
+    lead.className = '';
+    document.querySelector('#lead .t').textContent = '在地图上点出路线';
+    document.getElementById('leadSub').textContent = '顺着路点密一点，轨迹才贴路';
+  } else {
+    lead.className = 'gone';
+  }
+}
+
+function redraw(pulse){
+  for (var i=0;i<marks.length;i++) map.removeLayer(marks[i]);
+  marks = [];
+  if (caseLine) { map.removeLayer(caseLine); caseLine = null; }
+  if (coreLine) { map.removeLayer(coreLine); coreLine = null; }
+
+  // 起点：深色「起」标记，跟橙色编号点区分
+  if (startPt){
+    marks.push(L.marker(startPt, {
+      icon: L.divIcon({className:'', html:'<div class="pin start">起</div>',
+                       iconSize:[26,26], iconAnchor:[13,13]}),
+      keyboard:false
+    }).addTo(map));
+  }
+
+  for (var j=0;j<pts.length;j++){
+    // 闭合环线时首尾点几乎重合，末点会盖住起点，不画
+    if (j === pts.length - 1 && pts.length > 2 && hav(pts[0], pts[j]) < 60) continue;
+    marks.push(L.marker(pts[j], {
+      icon: L.divIcon({className:'', html:'<div class="pin' + (j===pulse?' pulse':'') + '">'
+                       + (j+1) + '</div>', iconSize:[26,26], iconAnchor:[13,13]}),
+      keyboard:false
+    }).addTo(map));
+  }
+
+  var list = allPts();
+  if (list.length > 1){
+    // 双层描边：下白上彩 —— 浅底地图上保证路线任何底图都看得清
+    caseLine = L.polyline(list, {color:'#FFFFFF', weight:9, opacity:.95,
+      lineCap:'round', lineJoin:'round'}).addTo(map);
+    coreLine = L.polyline(list, {color:'#C2410C', weight:5, opacity:1,
+      lineCap:'round', lineJoin:'round'}).addTo(map);
+  }
+  hud();
+}
+
+function hud(){
+  var n = pts.length;
+  var el = document.getElementById('n');
+  el.innerHTML = (startPt ? '<span style="font-size:15px;font-weight:600;color:#6B7787">起</span> + ' : '')
+               + n + '<small>个点</small>';
+
+  var list = allPts(), s = document.getElementById('sum');
+  if (mode === 'start' && !startPt) {
+    s.innerHTML = '<span style="font-size:13.5px">先定起点</span>';
+  } else if (!list.length) {
+    s.innerHTML = '<span style="font-size:13.5px">还没开始</span>';
+  } else if (list.length === 1) {
+    s.innerHTML = '<span style="font-size:13.5px">再点一个成线</span>';
+  } else {
+    var m = pathLength(list);
+    s.innerHTML = '<b>' + (m >= 1000 ? (m/1000).toFixed(2) + ' km' : Math.round(m) + ' m')
+                + '</b>' + (closedLoop() ? '环线' : '往返');
+  }
+}
+
+function hav(a,b){
+  var R=6371000, r=Math.PI/180;
+  var dLat=(b[0]-a[0])*r, dLng=(b[1]-a[1])*r;
+  var s=Math.sin(dLat/2)*Math.sin(dLat/2)
+      + Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return 2*R*Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
+}
+function pathLength(p){ var t=0; for (var i=1;i<p.length;i++) t+=hav(p[i-1],p[i]); return t; }
+function closedLoop(){ var l=allPts(); return l.length>2 && hav(l[0],l[l.length-1]) < 60; }
+
+function undo(){
+  if (pts.length) { pts.pop(); redraw(); buzz(6); return; }
+  if (startPt) { startPt = null; redraw(); setMode('start'); buzz(6); return; }
+  toast('还没有点');
+}
+
+var armed = false, armTimer = null;
+function clearAll(){
+  if (!pts.length && !startPt) return toast('还没有点');
+  var b = document.getElementById('clr');
+  if (!armed){
+    armed = true; b.textContent = '再点一次';
+    clearTimeout(armTimer);
+    armTimer = setTimeout(function(){ armed=false; b.textContent='清空'; }, 2600);
+    return;
+  }
+  clearTimeout(armTimer); armed = false; b.textContent = '清空';
+  startPt = null; pts = []; redraw(); setMode('start'); buzz(12);
+}
+
+function done(){
+  if (!startPt) return toast('先在地图上定一个起点');
+  var list = allPts();
+  if (list.length < 2) return toast('起点之外至少再点一个');
+  Bridge.onPoints(JSON.stringify(list));
+}
+
+var toastTimer = null;
+function toast(msg){
+  var el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'on';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.className = ''; }, 1800);
+}
+function buzz(ms){ try { if (navigator.vibrate) navigator.vibrate(ms); } catch(e){} }
+
+function setCenter(lat,lng,z){ map.setView([lat,lng], z||16); }
+
+// 打开就先进入"设起点"模式
+setMode('start');
+hud();
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 与应用内 Ui.GROUND 完全一致：窗口底色、状态栏、系统启动画面都用它，
+         这样「系统启动画面 → 自绘开场动画 → 主界面」三段底色连续，不会闪 -->
+    <color name="ground">#FF0F172A</color>
+</resources>

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.paceassist.auto"
+    android:versionCode="27"
+    android:versionName="2.7">
+
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="33" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- ★ Shizuku 要求：不声明这个权限，Shizuku 根本不会把该 App 列进它的应用清单，
+         也就永远不会把 binder 送过来（表现为「没检测到 Shizuku」）。
+         对照验证：bin.mt.plus 和 com.apkmirror.helper.prod 都声明了这一行。 -->
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
+
+    <!-- 由 adb 一次性授权，非 Play 分发 -->
+    <uses-permission android:name="android.permission.ACCESS_MOCK_LOCATION"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- 悬浮调速条：要浮在其他应用之上 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:label="慢亿点"
+        android:supportsRtl="false"
+        android:theme="@style/AppTheme"
+        android:usesCleartextTraffic="false">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="慢亿点"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".MapPickerActivity"
+            android:exported="false"
+            android:label="画路线"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
+        <service
+            android:name=".InjectService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <!-- Shizuku：靠这个 ContentProvider 把 shell 身份的 binder 传进来。
+             authorities 必须写成「包名 + .shizuku」（aapt2 不会替换 ${applicationId}） -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="com.paceassist.auto.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+    </application>
+</manifest>
