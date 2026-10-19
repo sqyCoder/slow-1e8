@@ -208,6 +208,12 @@ public class MainActivity extends Activity {
                         refresh();
                     }
                 }));
+        fixBox.addView(btn("Shizuku 一键授权", 0xFF7A5AF8, new View.OnClickListener() {
+            @Override public void onClick(View v) { shizukuSetup(); }
+        }));
+        fixBox.addView(btn("重新检查授权状态", 0xFF555555, new View.OnClickListener() {
+            @Override public void onClick(View v) { recheckAuth(); }
+        }));
         fixBox.addView(body("一、装好 shizuku，根据引导为「慢亿点」授权好。"));
         fixBox.addView(body("二、成功后回到本页，开启开发者给地址权限之后回来，点击放行。"));
         fixBox.addView(body("三、这样就能关闭了开发者同时保持给予地址权限，常规操作，无碍。"));
@@ -597,6 +603,14 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS")
                 != PackageManager.PERMISSION_GRANTED) need.add("android.permission.POST_NOTIFICATIONS");
         if (!need.isEmpty()) requestPermissions(need.toArray(new String[0]), REQ_PERM);
+    }
+
+    /** 重新检查授权状态，把三项结果打进日志 */
+    private void recheckAuth() {
+        log("当前状态：模拟位置=" + (Sys.mockAllowed(this) ? "已授权" : "未授权")
+                + "，写入系统设置=" + (Sys.hasWriteSecure(this) ? "已授权" : "未授权")
+                + "，Shizuku=" + (ShizukuHelper.hasPermission() ? "已授权" : "未授权"));
+        refresh();
     }
 
     /** Shizuku 一键授权：装好 Shizuku 并启动后，点一下就把所有授权做完（不用电脑） */
